@@ -1,10 +1,11 @@
-const CACHE_NAME = "online-store-v20";
+const CACHE_NAME = "online-store-v22";
 const APP_SHELL = [
   "./index.html",
   "./order.html",
   "./manifest.json",
   "./firebase-config.js",
-  "./store-config.js"
+  "./store-config.js",
+  "./app-icon-store.png"
 ];
 
 // Files are cached one at a time, and a failure is tolerated.

@@ -844,8 +844,22 @@
     });
   }
 
+  // See the note in the POS: the manifest is a real file again, because a
+  // browser-built one can only ever produce a shortcut, never an installed app.
+  // This now sets the status-bar colour and the tab icon and nothing else.
   async function applyDynamicManifest(design){
     try{
+      const primary0 = hexToRgb(design.primaryColor) ? design.primaryColor : "#1F6E43";
+      const bar0 = mixColor(primary0, "#000000", 0.28);
+      const metaTheme0 = document.querySelector('meta[name="theme-color"]');
+      if(metaTheme0) metaTheme0.setAttribute("content", bar0);
+      const fav0 = document.querySelector('link[rel="icon"]');
+      if(fav0){
+        const i = await drawAppIcon(192, bar0, design.logo || null);
+        if(i) fav0.href = i;
+      }
+      return;
+      /* eslint-disable no-unreachable */
       if(!window.Blob || !window.URL || !URL.createObjectURL) return;
       const link = document.querySelector('link[rel="manifest"]');
       if(!link) return;
@@ -916,6 +930,42 @@
   // gets big cards even in a shop that stocks hundreds.
   let visibleProductCount = 0;
 
+  // ---------- Remembering the shop's look between visits ----------
+  //
+  // The design lives in Firestore, which takes a moment to answer. Until it
+  // did, a customer opened the store and saw the built-in green and "Your
+  // Store Name" before it repainted — a second of somebody else's shop as the
+  // first impression. So the last known look is kept in this browser and
+  // applied immediately on the next visit; the live copy still arrives and
+  // wins, it just rarely has anything left to change.
+  //
+  // Kept deliberately small: no logo image, no delivery zones, nothing that
+  // affects an order. Anything that matters is read fresh from Firestore.
+  const DESIGN_CACHE_KEY = "storefront-design-v1";
+
+  function rememberDesign(design){
+    try{
+      localStorage.setItem(DESIGN_CACHE_KEY, JSON.stringify({
+        storeName: design.storeName || "",
+        tagline: design.tagline || "",
+        primaryColor: design.primaryColor || "",
+        fontStyle: design.fontStyle || "",
+        corners: design.corners || "",
+        density: design.density || "",
+        photoFit: design.photoFit || ""
+      }));
+    }catch(e){ /* private window, or storage full — not worth failing over */ }
+  }
+
+  function applyRememberedDesign(){
+    try{
+      const raw = localStorage.getItem(DESIGN_CACHE_KEY);
+      if(!raw) return;
+      const d = JSON.parse(raw);
+      if(d && typeof d === "object") applyDesignOverrides(d);
+    }catch(e){ /* ignore anything unreadable and wait for the live copy */ }
+  }
+
   function applyDesignOverrides(design){
     if(!design) return;
     const root = document.documentElement;
@@ -977,7 +1027,10 @@
     // Store name/tagline/logo/color set from the POS (Reports > Store name &
     // design) override the static store-config.js defaults when present.
     db.collection("settings").doc("design").onSnapshot((doc) => {
-      if(doc.exists) applyDesignOverrides(doc.data());
+      if(doc.exists){
+        applyDesignOverrides(doc.data());
+        rememberDesign(doc.data());
+      }
     }, (err) => { console.error(err); });
 
     // Cross-sell suggestion rules set from the POS (Reports > Product suggestions).
@@ -1837,6 +1890,9 @@
   function init(){
     setupInstallPrompt();
     applyStoreConfig();
+    // Paint the shop's own colours and name before anything is fetched, so a
+    // returning customer never sees the default green flash past.
+    applyRememberedDesign();
     wireEvents();
     initFirebase();
   }

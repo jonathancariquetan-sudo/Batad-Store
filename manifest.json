@@ -1,17 +1,15 @@
 {
-  "name": "Online Store",
-  "short_name": "Online Store",
-  "description": "Order groceries online for pickup or delivery",
+  "name": "Tindahan ni Gloria",
+  "short_name": "Tindahan",
+  "description": "Order groceries for pickup or delivery",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F4F6F1",
-  "theme_color": "#164F30",
+  "background_color": "#FFFFFF",
+  "theme_color": "#3A2160",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "app-icon-store.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "app-icon-store.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
