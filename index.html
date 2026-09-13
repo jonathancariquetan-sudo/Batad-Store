@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Online Store</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#164F30">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  /* Deliberately no web font: most customers here are on mobile data, and a
+     font download is a slower first screen for no real gain. */
+  :root{
+    --bg:#FAFAFA;
+    --surface:#FFFFFF;
+    --border:#E9EBE6;
+    --border-strong:#D8DCD4;
+    --text:#18211B;
+    --text-muted:#6B7669;
+    --primary:#1F6E43;
+    --primary-dark:#164F30;
+    --primary-tint:#E4F0E8;
+    --sale:#C0453B;
+    --sale-tint:#FBECEA;
+    --warn:#9A6A12;
+    --radius:12px;
+    --nav-h:58px;
+    /* Set from the POS's Store design screen. Every stack below is made of
+       fonts already on the phone, so choosing one costs no extra download. */
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --grid-cols:2;
+  }
+  :root[data-font="rounded"]{ --font:"SF Pro Rounded",ui-rounded,"Segoe UI Variable","Segoe UI",Roboto,sans-serif; }
+  :root[data-font="serif"]{ --font:Georgia,"Times New Roman",serif; }
+  :root[data-font="condensed"]{ --font:"Roboto Condensed","Arial Narrow","Segoe UI",sans-serif; }
+  :root[data-corners="round"]{ --radius:20px; }
+  :root[data-corners="sharp"]{ --radius:2px; }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font);
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit;}
+  img{max-width:100%;}
+
+  /* ---------------- Store header (scrolls away) ---------------- */
+  .store-head{
+    background:var(--surface);
+    padding:14px 16px 12px;
+    display:flex;align-items:center;gap:11px;
+  }
+  .store-head img{width:36px;height:36px;border-radius:10px;object-fit:cover;flex:none;display:none;}
+  .store-head h1{font-size:17px;font-weight:800;margin:0;letter-spacing:-.01em;}
+  .store-head .tagline{font-size:12.5px;color:var(--text-muted);margin-top:1px;}
+
+  /* Where-to bar: the first decision a customer makes, because it sets the
+     delivery fee, the minimum order and which days we go there. */
+  .install-bar{
+    display:none;align-items:center;gap:10px;width:100%;
+    padding:10px 16px;background:var(--primary-tint);
+    border:none;border-top:1px solid var(--border);
+    font-size:12.5px;color:var(--primary-dark);text-align:left;cursor:pointer;
+  }
+  .install-bar.show{display:flex;}
+  .install-bar b{font-weight:800;}
+  .install-bar .x{
+    margin-left:auto;border:none;background:none;color:var(--primary-dark);
+    font-size:15px;padding:2px 4px;cursor:pointer;opacity:.6;
+  }
+  .loc-bar{
+    display:flex;align-items:center;gap:8px;width:100%;
+    background:var(--surface);border:none;border-top:1px solid var(--border);
+    padding:10px 16px;cursor:pointer;text-align:left;
+    font-size:13px;color:var(--text);
+  }
+  .loc-bar svg{width:16px;height:16px;flex:none;stroke:var(--primary);fill:none;stroke-width:2;}
+  .loc-bar .where{font-weight:800;}
+  .loc-bar .rules{color:var(--text-muted);font-size:11.5px;}
+  .loc-bar .chev{margin-left:auto;color:var(--text-muted);font-size:12px;}
+  .zone-row{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:13px 2px;border-bottom:1px solid var(--border);cursor:pointer;
+  }
+  .zone-row:last-child{border-bottom:none;}
+  .zone-row .zn{font-size:14.5px;font-weight:700;}
+  .zone-row .zr{font-size:11.5px;color:var(--text-muted);margin-top:2px;}
+  .zone-row.sel .zn{color:var(--primary);}
+  .zone-row .tick{color:var(--primary);font-weight:800;}
+
+  /* ---------------- Sticky search + chips ---------------- */
+  .sticky-bar{
+    position:sticky;top:0;z-index:40;
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    padding:10px 16px 0;
+  }
+  .search-wrap{position:relative;margin-bottom:10px;}
+  .search-wrap svg{
+    position:absolute;left:12px;top:50%;transform:translateY(-50%);
+    width:17px;height:17px;stroke:var(--text-muted);fill:none;stroke-width:2;
+  }
+  .search-wrap input{
+    width:100%;padding:11px 14px 11px 37px;
+    border:1px solid var(--border-strong);border-radius:10px;
+    font-size:15px;background:var(--bg);color:var(--text);
+    outline:none;
+  }
+  .search-wrap input:focus{border-color:var(--primary);background:var(--surface);}
+  .chips{
+    display:flex;gap:7px;overflow-x:auto;padding-bottom:10px;
+    scrollbar-width:none;-ms-overflow-style:none;
+  }
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:none;padding:6px 13px;border-radius:999px;
+    border:1px solid var(--border-strong);background:var(--surface);
+    font-size:13px;font-weight:600;color:var(--text-muted);
+    white-space:nowrap;cursor:pointer;
+  }
+  .chip.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+
+  /* ---------------- Sections ---------------- */
+  main{padding-bottom:calc(var(--nav-h) + 74px);}
+  .section{padding:18px 0 4px;}
+  .section-head{
+    display:flex;align-items:baseline;justify-content:space-between;
+    gap:12px;padding:0 16px;margin-bottom:11px;
+  }
+  .section-head h2{font-size:15.5px;font-weight:800;margin:0;letter-spacing:-.01em;}
+  .section-head .sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
+  .section-head .link{
+    font-size:13px;font-weight:700;color:var(--primary);
+    background:none;border:none;padding:0;cursor:pointer;white-space:nowrap;
+  }
+
+  /* Horizontal rail (clearance) */
+  .rail{
+    display:flex;gap:10px;overflow-x:auto;padding:2px 16px 6px;
+    scrollbar-width:none;-ms-overflow-style:none;
+  }
+  .rail::-webkit-scrollbar{display:none;}
+  .rail .product-card{flex:none;width:148px;}
+
+  /* ---------------- Product card ---------------- */
+  .grid{
+    display:grid;grid-template-columns:repeat(var(--grid-cols),1fr);
+    gap:10px;padding:2px 16px 0;
+  }
+  @media (min-width:560px){ .grid{grid-template-columns:repeat(calc(var(--grid-cols) + 1),1fr);} }
+  @media (min-width:820px){ .grid{grid-template-columns:repeat(calc(var(--grid-cols) + 2),1fr);} }
+
+  .product-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    position:relative;
+    cursor:pointer;
+  }
+  .product-card.out{opacity:.5;}
+  .product-card .thumb{
+    position:relative;
+    aspect-ratio:1/1;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .product-card .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .product-card .thumb .placeholder{font-size:28px;opacity:.35;}
+  .product-card .body{padding:9px 10px 11px;display:flex;flex-direction:column;gap:3px;flex:1;}
+  .product-card .name{
+    font-size:13px;line-height:1.35;font-weight:600;
+    /* Fixed two-line box so prices sit on the same baseline across a row,
+       whether a name wraps to one line or two. */
+    min-height:2.7em;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .product-card .price-row{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;padding-top:2px;}
+  .product-card .reason{font-size:10.5px;color:var(--sale);font-weight:700;}
+  .product-card .localname{font-size:11px;color:var(--text-muted);margin-top:-1px;}
+  .product-card .price{font-size:15.5px;font-weight:800;letter-spacing:-.01em;}
+  .product-card .price.sale{color:var(--sale);}
+  .product-card .was{font-size:11.5px;color:var(--text-muted);text-decoration:line-through;}
+  .product-card .low{font-size:11px;color:var(--warn);font-weight:700;}
+  .product-card .soldout{font-size:11px;color:var(--text-muted);font-weight:700;}
+
+  /* Discount flag — one small mark, not a stack of badges */
+  .off-flag{
+    position:absolute;top:7px;left:7px;
+    background:var(--sale);color:#fff;
+    font-size:10.5px;font-weight:800;letter-spacing:.02em;
+    padding:2px 6px;border-radius:5px;
+  }
+  .tingi-btn{
+    width:100%;margin-top:6px;padding:6px;border-radius:8px;
+    border:1px dashed var(--border-strong);background:var(--surface);
+    font-size:11.5px;font-weight:700;color:var(--primary);cursor:pointer;
+  }
+  .tingi-btn:active{background:var(--primary-tint);}
+  .min-notice{
+    background:#FFF6E5;color:var(--warn);border-radius:9px;
+    padding:10px 12px;font-size:12.5px;font-weight:600;line-height:1.5;margin-bottom:12px;
+  }
+  .add-btn{
+    position:absolute;right:7px;bottom:7px;
+    width:30px;height:30px;border-radius:50%;
+    background:var(--surface);border:1px solid var(--border-strong);
+    color:var(--text);font-size:19px;line-height:1;font-weight:400;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;padding:0;
+  }
+  .add-btn:active{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .qty-badge{
+    position:absolute;right:7px;bottom:7px;
+    min-width:30px;height:30px;padding:0 8px;border-radius:15px;
+    background:var(--primary);color:#fff;
+    font-size:13px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+  }
+
+  /* ---------------- Suggestions ---------------- */
+  .suggest-strip{padding:16px 0 4px;}
+  .suggest-label{font-size:13px;font-weight:800;padding:0 16px;margin-bottom:9px;}
+  .suggest-row{
+    display:flex;gap:9px;overflow-x:auto;padding:2px 16px 4px;
+    scrollbar-width:none;-ms-overflow-style:none;
+  }
+  .suggest-row::-webkit-scrollbar{display:none;}
+  .suggest-card{
+    flex:none;width:112px;background:var(--surface);
+    border:1px solid var(--border);border-radius:10px;padding:8px;
+  }
+  .suggest-card .thumb{
+    aspect-ratio:1/1;background:var(--bg);border-radius:7px;margin-bottom:6px;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+  }
+  .suggest-card .thumb img{width:100%;height:100%;object-fit:cover;}
+  .suggest-card .thumb .placeholder{font-size:20px;opacity:.35;}
+  .suggest-card .name{
+    font-size:11.5px;font-weight:600;line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .suggest-card .price{font-size:12.5px;font-weight:800;margin-top:2px;}
+  .suggest-card .add-mini{
+    width:100%;margin-top:6px;padding:5px;border-radius:7px;
+    border:1px solid var(--border-strong);background:var(--surface);
+    font-size:11.5px;font-weight:700;color:var(--primary);cursor:pointer;
+  }
+
+  .loading-wrap,.empty-state{padding:48px 16px;text-align:center;color:var(--text-muted);font-size:14px;}
+  .empty-state .big{font-size:34px;margin-bottom:8px;opacity:.5;}
+  .empty-state .msg{line-height:1.6;}
+  .footer-note{
+    padding:26px 16px 8px;font-size:12px;color:var(--text-muted);
+    line-height:1.6;text-align:center;
+  }
+  .footer-note a{color:var(--primary);font-weight:700;}
+
+  /* ---------------- Cart strip + bottom nav ---------------- */
+  .cart-strip{
+    position:fixed;left:0;right:0;
+    bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+    z-index:45;
+    display:none;align-items:center;justify-content:space-between;gap:12px;
+    padding:11px 16px;
+    background:var(--primary);color:#fff;
+    font-size:14px;font-weight:700;
+    cursor:pointer;
+  }
+  .cart-strip.show{display:flex;}
+  .cart-strip .count{
+    background:rgba(255,255,255,.22);border-radius:999px;
+    padding:1px 8px;margin-right:7px;font-size:12.5px;
+  }
+
+  .bottom-nav{
+    position:fixed;left:0;right:0;bottom:0;z-index:46;
+    height:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+    background:var(--surface);
+    border-top:1px solid var(--border);
+    display:flex;
+  }
+  .nav-item{
+    flex:1;border:none;background:none;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    color:var(--text-muted);font-size:10.5px;font-weight:700;
+    padding:0;position:relative;
+  }
+  .nav-item svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  .nav-item.active{color:var(--primary);}
+  .nav-item .nav-badge{
+    position:absolute;top:5px;left:50%;margin-left:4px;
+    min-width:16px;height:16px;padding:0 4px;border-radius:8px;
+    background:var(--sale);color:#fff;
+    font-size:10px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+  }
+
+  /* ---------------- Sheets ---------------- */
+  .sheet-overlay{
+    position:fixed;inset:0;background:rgba(16,22,18,.44);
+    opacity:0;pointer-events:none;transition:opacity .18s;z-index:60;
+  }
+  .sheet-overlay.show{opacity:1;pointer-events:auto;}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:61;
+    background:var(--surface);
+    border-radius:18px 18px 0 0;
+    max-height:88vh;display:flex;flex-direction:column;
+    transform:translateY(100%);transition:transform .22s ease;
+  }
+  .sheet.show{transform:translateY(0);}
+  .sheet-handle{width:38px;height:4px;border-radius:2px;background:var(--border-strong);margin:9px auto 2px;}
+  .sheet-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 18px 12px;border-bottom:1px solid var(--border);
+  }
+  .sheet-header h2{font-size:16px;font-weight:800;margin:0;}
+  .sheet-close{
+    border:none;background:none;font-size:17px;color:var(--text-muted);
+    cursor:pointer;padding:4px 6px;
+  }
+  .sheet-body{
+    padding:16px 18px calc(26px + env(safe-area-inset-bottom, 0px));
+    overflow-y:auto;
+  }
+
+  .cart-item{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--border);}
+  .cart-item .info{flex:1;min-width:0;}
+  .cart-item .name{font-size:13.5px;font-weight:700;}
+  .cart-item .unit{font-size:11.5px;color:var(--text-muted);margin-top:1px;}
+  .cart-item .unit .was{text-decoration:line-through;margin-left:5px;}
+  .stepper{display:flex;align-items:center;gap:5px;}
+  .stepper button{
+    width:27px;height:27px;border-radius:7px;
+    border:1px solid var(--border-strong);background:var(--surface);
+    font-size:15px;color:var(--text);cursor:pointer;padding:0;line-height:1;
+  }
+  .stepper .n{min-width:20px;text-align:center;font-size:13.5px;font-weight:700;}
+  .cart-item .line-total{font-size:13.5px;font-weight:800;min-width:64px;text-align:right;}
+  .summary-row{display:flex;justify-content:space-between;padding:13px 0 4px;font-size:15px;}
+  .summary-row.total{font-weight:800;font-size:17px;}
+
+  .field{margin-bottom:13px;}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:5px;}
+  .field input,.field textarea{
+    width:100%;padding:11px 12px;border:1px solid var(--border-strong);
+    border-radius:9px;font-size:15px;background:var(--surface);color:var(--text);
+    outline:none;font-family:inherit;
+  }
+  .field input:focus,.field textarea:focus{border-color:var(--primary);}
+  .radio-row{display:flex;gap:8px;margin-bottom:12px;}
+  .radio-opt{
+    flex:1;padding:11px 8px;border:1px solid var(--border-strong);border-radius:9px;
+    text-align:center;font-size:13.5px;font-weight:700;color:var(--text-muted);cursor:pointer;
+  }
+  .radio-opt.active{border-color:var(--primary);background:var(--primary-tint);color:var(--primary-dark);}
+  .note-box{
+    background:var(--bg);border-radius:9px;padding:10px 12px;
+    font-size:12.5px;color:var(--text-muted);line-height:1.55;margin-bottom:12px;
+  }
+  .gcash-box{
+    background:var(--primary-tint);border-radius:9px;padding:10px 12px;
+    font-size:12.5px;color:var(--primary-dark);line-height:1.55;margin-bottom:12px;
+  }
+  .form-error{
+    display:none;background:var(--sale-tint);color:var(--sale);
+    border-radius:9px;padding:10px 12px;font-size:12.5px;font-weight:600;margin-bottom:12px;
+  }
+  .btn{
+    width:100%;padding:13px;border-radius:10px;border:none;
+    font-size:15px;font-weight:800;cursor:pointer;
+  }
+  .btn-primary{background:var(--primary);color:#fff;}
+  .btn-primary:disabled{opacity:.5;}
+  .btn-secondary{background:var(--bg);color:var(--text);border:1px solid var(--border-strong);}
+  /* Messenger's own blue, not the store's colour — people recognise it faster
+     than any styling of ours, and this button leaves the site. */
+  .btn-messenger{background:#0866FF;color:#fff;width:100%;margin-top:12px;}
+  .btn-messenger.copied{background:#0B4FC4;}
+  .btn-danger{background:var(--sale-tint);color:var(--sale);}
+  .btn-row{display:flex;gap:9px;margin-top:14px;}
+
+  .confirm-code{
+    background:var(--primary-tint);border-radius:12px;
+    padding:18px;text-align:center;margin-bottom:14px;
+  }
+  .confirm-code .lbl{font-size:12px;color:var(--primary-dark);font-weight:700;}
+  .confirm-code .code{
+    font-size:29px;font-weight:800;letter-spacing:.14em;
+    color:var(--primary-dark);margin-top:5px;
+  }
+
+  .cat-row{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:13px 2px;border-bottom:1px solid var(--border);
+    font-size:14.5px;font-weight:600;cursor:pointer;
+  }
+  .cat-row:last-child{border-bottom:none;}
+  .cat-row .n{font-size:12.5px;color:var(--text-muted);font-weight:700;}
+</style>
+</head>
+<body>
+
+<header class="store-head">
+  <img id="storeLogoImg" alt="">
+  <div style="min-width:0;">
+    <h1 id="storeName">Store</h1>
+    <div class="tagline" id="storeTagline"></div>
+  </div>
+</header>
+
+<div class="install-bar" id="installBar">
+  <span id="installText"><b>Add to your home screen</b> — opens like an app, no browser bar</span>
+  <button class="x" id="installDismiss" aria-label="Dismiss">✕</button>
+</div>
+
+<button class="loc-bar" id="locBar">
+  <svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"></path><circle cx="12" cy="10" r="2.6"></circle></svg>
+  <span style="min-width:0;">
+    <span class="where" id="locWhere">Choose your town</span>
+    <span class="rules" id="locRules"></span>
+  </span>
+  <span class="chev">▾</span>
+</button>
+
+<div class="sticky-bar">
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+    <input type="text" id="searchInput" placeholder="Search — English or local name">
+  </div>
+  <div class="chips" id="categoryChips"></div>
+</div>
+
+<main>
+  <!-- Price drops: only appears when the store has marked something down -->
+  <div class="section" id="clearanceSection" style="display:none;">
+    <div class="section-head">
+      <div>
+        <h2>Price drops</h2>
+        <div class="sub" id="clearanceSub"></div>
+      </div>
+    </div>
+    <div class="rail" id="clearanceRail"></div>
+  </div>
+
+  <div class="suggest-strip" id="suggestStrip" style="display:none;">
+    <div class="suggest-label">Goes well with your cart</div>
+    <div class="suggest-row" id="suggestRow"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div><h2 id="gridHeading">All products</h2></div>
+      <button class="link" id="clearFilterBtn" style="display:none;">Clear</button>
+    </div>
+    <div id="loadingProducts" class="loading-wrap">Loading products…</div>
+    <div class="grid" id="productGrid" style="display:none;"></div>
+    <div class="empty-state" id="emptyProducts" style="display:none;">
+      <div class="big">🛍️</div>
+      <div class="msg">No products available right now.<br>Please check back soon.</div>
+    </div>
+  </div>
+
+  <div class="footer-note" id="photoCredits" style="display:none;"></div>
+  <div class="footer-note">Already placed an order? Use the link or code from your confirmation to <a id="trackLink" href="order.html">track it here</a>.</div>
+</main>
+
+<div class="cart-strip" id="cartBar">
+  <div><span class="count" id="cartCount">0</span>View cart</div>
+  <div id="cartBarTotal">₱0.00</div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-item active" id="navHome">
+    <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5.5 9.5V20h13V9.5"></path></svg>
+    Home
+  </button>
+  <button class="nav-item" id="navCategories">
+    <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"></rect></svg>
+    Categories
+  </button>
+  <button class="nav-item" id="navOrder">
+    <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"></path><path d="M9.5 8h5"></path><path d="M9.5 12h5"></path></svg>
+    My order
+  </button>
+  <button class="nav-item" id="navCart">
+    <svg viewBox="0 0 24 24"><path d="M4 5h2l2.2 10.5h9.3L20 8H7"></path><circle cx="10" cy="19.5" r="1.3"></circle><circle cx="17" cy="19.5" r="1.3"></circle></svg>
+    Cart
+    <span class="nav-badge" id="navCartBadge" style="display:none;">0</span>
+  </button>
+</nav>
+
+<div class="sheet-overlay" id="overlay"></div>
+
+<!-- Categories sheet -->
+<div class="sheet" id="categorySheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><h2>Categories</h2><button class="sheet-close" data-close>✕</button></div>
+  <div class="sheet-body">
+    <div id="categoryList"></div>
+  </div>
+</div>
+
+<!-- Where-to sheet -->
+<div class="sheet" id="zoneSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><h2>Where are we taking it?</h2><button class="sheet-close" data-close>✕</button></div>
+  <div class="sheet-body">
+    <div id="zonePickList"></div>
+  </div>
+</div>
+
+<!-- Buy-by-the-piece sheet -->
+<div class="sheet" id="tingiSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><h2 id="tingiTitle">Buy per piece</h2><button class="sheet-close" data-close>✕</button></div>
+  <div class="sheet-body">
+    <p style="font-size:13px;color:var(--text-muted);margin:0 0 14px;" id="tingiInfo"></p>
+    <div class="field">
+      <label id="tingiLabel">How many?</label>
+      <input type="number" id="tingiQty" inputmode="decimal" min="0" step="any" value="1">
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin:-6px 0 14px;" id="tingiAvail"></p>
+    <button class="btn btn-primary" id="tingiAddBtn">Add to cart</button>
+  </div>
+</div>
+
+<!-- Cart sheet -->
+<div class="sheet" id="cartSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><h2>Your cart</h2><button class="sheet-close" data-close>✕</button></div>
+  <div class="sheet-body">
+    <div id="cartItemsWrap"></div>
+    <div class="suggest-strip" id="cartSuggestStrip" style="display:none;padding-left:0;padding-right:0;">
+      <div class="suggest-label" style="padding:0;">You might also like</div>
+      <div class="suggest-row" id="cartSuggestRow" style="padding-left:0;padding-right:0;"></div>
+    </div>
+    <div class="summary-row" id="feeRow" style="display:none;"><span id="feeLabel">Delivery</span><span id="feeAmount">₱0.00</span></div>
+    <div class="summary-row total"><span>Total</span><span id="cartTotal">₱0.00</span></div>
+    <div class="btn-row">
+      <button class="btn btn-danger" id="clearCartBtn" style="flex:0 0 40%;">Clear</button>
+      <button class="btn btn-primary" id="toCheckoutBtn">Checkout</button>
+    </div>
+  </div>
+</div>
+
+<!-- Checkout sheet -->
+<div class="sheet" id="checkoutSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><h2>Checkout</h2><button class="sheet-close" data-close>✕</button></div>
+  <div class="sheet-body">
+    <div class="field">
+      <label>Your name</label>
+      <input type="text" id="cf-name" placeholder="Full name">
+    </div>
+    <div class="field">
+      <label>Phone / GCash number</label>
+      <input type="tel" id="cf-phone" inputmode="tel" placeholder="09XXXXXXXXX">
+    </div>
+
+    <label style="display:block;font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px;">How will you get your order?</label>
+    <div class="radio-row" id="methodRow">
+      <div class="radio-opt active" data-method="pickup">🏬 Pickup</div>
+      <div class="radio-opt" data-method="delivery">🚚 Delivery</div>
+    </div>
+    <div id="pickupNoteBox" class="note-box"></div>
+    <div id="deliveryFields" style="display:none;">
+      <div class="note-box" id="deliveryNoteBox"></div>
+      <div class="field">
+        <label>Delivery address</label>
+        <textarea id="cf-address" rows="2" placeholder="Barangay, then a landmark — e.g. Brgy. Poblacion, beside the covered court"></textarea>
+      </div>
+    </div>
+
+    <label style="display:block;font-size:12px;font-weight:700;color:var(--text-muted);margin:14px 0 6px;">Payment method</label>
+    <div class="radio-row" id="paymentRow">
+      <div class="radio-opt active" data-payment="cash">💵 Cash</div>
+      <div class="radio-opt" data-payment="gcash">📱 GCash</div>
+    </div>
+    <div id="gcashFields" style="display:none;">
+      <div class="gcash-box" id="gcashInstructions"></div>
+      <div class="field">
+        <label>GCash reference number (optional)</label>
+        <input type="text" id="cf-gcashref" placeholder="e.g. 1234567890123">
+      </div>
+    </div>
+
+    <div class="min-notice" id="minNotice" style="display:none;"></div>
+    <div class="form-error" id="checkoutError"></div>
+    <button class="btn btn-primary" id="placeOrderBtn">Place order</button>
+  </div>
+</div>
+
+<!-- Confirmation sheet -->
+<div class="sheet" id="confirmSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><h2>Order placed!</h2><button class="sheet-close" data-close>✕</button></div>
+  <div class="sheet-body">
+    <div class="confirm-code">
+      <div class="lbl">Your order code</div>
+      <div class="code" id="confirmCode">------</div>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);line-height:1.6;" id="confirmDetails"></p>
+    <button class="btn btn-messenger" id="messengerBtn" style="display:none;">Send this order on Messenger</button>
+    <p id="messengerHint" style="display:none;font-size:12px;color:var(--text-muted);line-height:1.5;margin:8px 0 0;">Your order is already saved — this just opens a chat so we can confirm it with you. The details are copied, so you can paste them straight into the message.</p>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="viewTrackBtn">Track this order</button>
+      <button class="btn btn-primary" id="doneOrderBtn">Done</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="store-config.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  let db = null;
+  let products = [];
+  let cart = [];
+  let pairingRules = []; // [{from: category, to: category}] set by the owner in the POS
+  let activeCategory = "All";
+  let storeRules = { minOrderDelivery: 0, minOrderPickup: 0 };
+  let zones = [];            // [{name, fee, minOrder, days:[]}] set by the owner in the POS
+  let selectedZone = null;   // null until the customer says where they are
+  const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  let tingiProductId = null;
+  let checkoutMethod = "pickup";
+  let checkoutPayment = "cash";
+  let placingOrder = false;
+
+  const $ = (id) => document.getElementById(id);
+  const peso = (n) => "₱" + Number(n || 0).toLocaleString("en-PH", {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  function escapeHtml(s){
+    const d = document.createElement("div");
+    d.textContent = s == null ? "" : String(s);
+    return d.innerHTML;
+  }
+
+  // ---------- Markdowns ----------
+  // The store marks items down from the POS (near expiry, or slow movers). The
+  // storefront never decides a discount itself — it only displays what the POS
+  // has written, and ignores a markdown that has passed its end date or that
+  // isn't actually cheaper than the normal price.
+  const REASON_LABELS = { expiring: "Best before soon", slow: "Clearance" };
+
+  function saleInfo(p){
+    const sale = Number(p.salePrice);
+    const base = Number(p.price) || 0;
+    if(!isFinite(sale) || sale <= 0 || base <= 0 || sale >= base) return null;
+    if(p.saleUntil){
+      const until = new Date(p.saleUntil).getTime();
+      if(isFinite(until) && until < Date.now()) return null;
+    }
+    return {
+      price: sale,
+      was: base,
+      off: Math.round(((base - sale) / base) * 100),
+      label: REASON_LABELS[p.saleReason] || ""
+    };
+  }
+  // The one price everything else must use: cards, cart lines, totals, and the
+  // order record itself.
+  function effectivePrice(p){
+    const s = saleInfo(p);
+    return s ? s.price : (Number(p.price) || 0);
+  }
+
+  // Products without their own photo show the shop's logo rather than a generic
+  // icon — it reads as deliberate instead of unfinished.
+  let storeLogo = null;
+  function productPlaceholder(){
+    return storeLogo
+      ? `<img src="${storeLogo}" alt="" style="width:58%;height:58%;object-fit:contain;opacity:.45;">`
+      : `<span class="placeholder">🛍️</span>`;
+  }
+
+  function applyStoreConfig(){
+    const cfg = window.STORE_CONFIG || {};
+    $("storeName").textContent = cfg.name || "Store";
+    $("storeTagline").textContent = cfg.tagline || "";
+    document.title = (cfg.name || "Store") + " — Online Store";
+    $("pickupNoteBox").textContent = cfg.pickupNote || "Pickup at the store.";
+    $("deliveryNoteBox").textContent = cfg.deliveryNote || "We'll confirm delivery details with you.";
+    const gcashNum = cfg.gcashNumber || "";
+    const gcashName = cfg.gcashName || "";
+    $("gcashInstructions").innerHTML = `Send payment to <strong>${escapeHtml(gcashNum)}</strong> (${escapeHtml(gcashName)}), then enter your reference number below so we can verify it.`;
+  }
+
+  // ---------- Store branding, editable from the POS's "Store name & design" ----------
+  function hexToRgb(hex){
+    hex = (hex || "").replace("#", "");
+    if(hex.length === 3) hex = hex.split("").map(c => c+c).join("");
+    const num = parseInt(hex, 16);
+    if(isNaN(num) || hex.length !== 6) return null;
+    return { r: (num>>16)&255, g: (num>>8)&255, b: num&255 };
+  }
+  function mixColor(hex, withHex, ratio){
+    const c1 = hexToRgb(hex), c2 = hexToRgb(withHex);
+    if(!c1 || !c2) return hex;
+    const r = Math.round(c1.r + (c2.r-c1.r)*ratio);
+    const g = Math.round(c1.g + (c2.g-c1.g)*ratio);
+    const b = Math.round(c1.b + (c2.b-c1.b)*ratio);
+    return "#" + [r,g,b].map(v => v.toString(16).padStart(2,"0")).join("");
+  }
+  // The installed shop icon and its status bar come from the manifest, a static
+  // file that would otherwise say "Online Store" in the shop's default green on
+  // every store that deploys this. Built from the store's own settings instead.
+  // Takes effect on a fresh install only.
+  // Same watermark as the POS, controlled from the same setting — the shop's
+  // logo faint behind the page. Faded into the image itself so it can never sit
+  // over a product card or a button.
+  function makeWatermark(src, alpha){
+    return new Promise((resolve) => {
+      if(!src){ resolve(null); return; }
+      const img = new Image();
+      img.onload = () => {
+        const size = 512;
+        const canvas = document.createElement("canvas");
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        ctx.globalAlpha = alpha;
+        let w = img.width, h = img.height;
+        const scale = Math.min(size / w, size / h);
+        w *= scale; h *= scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        try{ resolve(canvas.toDataURL("image/png")); }
+        catch(e){ resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+
+  let watermarkFor = null;
+  async function applyWatermark(design){
+    const on = design.watermark !== false && !!design.logo;
+    if(!on){
+      document.body.style.backgroundImage = "";
+      watermarkFor = null;
+      return;
+    }
+    if(watermarkFor === design.logo) return;
+    const wm = await makeWatermark(design.logo, 0.05);
+    if(!wm) return;
+    watermarkFor = design.logo;
+    document.body.style.backgroundImage = "url(" + wm + ")";
+    document.body.style.backgroundRepeat = "no-repeat";
+    document.body.style.backgroundPosition = "center 40%";
+    document.body.style.backgroundSize = "min(62vw, 320px)";
+    document.body.style.backgroundAttachment = "fixed";
+  }
+
+  function applyDynamicManifest(design){
+    try{
+      if(!window.Blob || !window.URL || !URL.createObjectURL) return;
+      const link = document.querySelector('link[rel="manifest"]');
+      if(!link) return;
+      const abs = (rel) => new URL(rel, location.href).href;
+      const cfg = window.STORE_CONFIG || {};
+      const name = design.storeName || cfg.name || "Online Store";
+      const primary = hexToRgb(design.primaryColor) ? design.primaryColor : "#1F6E43";
+      const manifest = {
+        name: name,
+        short_name: name.length > 14 ? name.slice(0, 14).trim() : name,
+        description: "Order for pickup or delivery",
+        start_url: abs("./index.html"),
+        scope: abs("./"),
+        display: "standalone",
+        orientation: "portrait",
+        background_color: "#FFFFFF",
+        theme_color: mixColor(primary, "#000000", 0.28),
+        icons: [
+          { src: abs("icon-192.png"), sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: abs("icon-192.png"), sizes: "192x192", type: "image/png", purpose: "maskable" },
+          { src: abs("icon-512.png"), sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: abs("icon-512.png"), sizes: "512x512", type: "image/png", purpose: "maskable" }
+        ]
+      };
+      const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
+      const url = URL.createObjectURL(blob);
+      if(link.dataset.blobUrl) URL.revokeObjectURL(link.dataset.blobUrl);
+      link.href = url;
+      link.dataset.blobUrl = url;
+    }catch(e){
+      // Static manifest stays in place rather than risk breaking install.
+    }
+  }
+
+  function applyDesignOverrides(design){
+    if(!design) return;
+    const root = document.documentElement;
+    root.setAttribute("data-font", design.fontStyle || "system");
+    root.setAttribute("data-corners", design.corners || "soft");
+    root.style.setProperty("--grid-cols", design.density === "compact" ? "3" : "2");
+    storeRules.minOrderDelivery = Number(design.minOrderDelivery) || 0;
+    storeRules.minOrderPickup = Number(design.minOrderPickup) || 0;
+    zones = Array.isArray(design.deliveryZones) ? design.deliveryZones : [];
+    restoreZoneChoice();
+    // A town remembered from last visit has to put the checkout back into
+    // delivery mode, or the fee and minimum silently wouldn't apply.
+    if(selectedZone) selectMethod(isPickup() ? "pickup" : "delivery");
+    renderLocBar();
+    updateMinNotice();
+    if(design.primaryColor && hexToRgb(design.primaryColor)){
+      const root = document.documentElement;
+      root.style.setProperty("--primary", design.primaryColor);
+      root.style.setProperty("--primary-dark", mixColor(design.primaryColor, "#000000", 0.28));
+      root.style.setProperty("--primary-tint", mixColor(design.primaryColor, "#FFFFFF", 0.88));
+      const metaTheme = document.querySelector('meta[name="theme-color"]');
+      if(metaTheme) metaTheme.content = mixColor(design.primaryColor, "#000000", 0.28);
+    }
+    // Outside the colour check on purpose: a store may set a logo or a name
+    // without ever choosing a custom colour, and both of these depend on those
+    // rather than on the colour.
+    applyDynamicManifest(design);
+    applyWatermark(design);
+    if(design.storeName){
+      $("storeName").textContent = design.storeName;
+      document.title = design.storeName + " — Online Store";
+    }
+    if(design.tagline) $("storeTagline").textContent = design.tagline;
+    const logoImg = $("storeLogoImg");
+    if(design.logo){ logoImg.src = design.logo; logoImg.style.display = "block"; storeLogo = design.logo; }
+    else { logoImg.style.display = "none"; logoImg.src = ""; storeLogo = null; }
+  }
+
+  function initFirebase(){
+    if(!window.FIREBASE_CONFIG || window.FIREBASE_CONFIG.apiKey === "PASTE_YOUR_API_KEY"){
+      $("loadingProducts").textContent = "This store hasn't been connected to a Firebase project yet.";
+      return;
+    }
+    firebase.initializeApp(window.FIREBASE_CONFIG);
+    db = firebase.firestore();
+    db.collection("products").onSnapshot((snap) => {
+      products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderChips();
+      renderClearance();
+      renderProductGrid();
+      renderSuggestions();
+      renderPhotoCredits();
+    }, (err) => {
+      console.error(err);
+      $("loadingProducts").textContent = "Couldn't load products — please refresh.";
+    });
+    // Store name/tagline/logo/color set from the POS (Reports > Store name &
+    // design) override the static store-config.js defaults when present.
+    db.collection("settings").doc("design").onSnapshot((doc) => {
+      if(doc.exists) applyDesignOverrides(doc.data());
+    }, (err) => { console.error(err); });
+
+    // Cross-sell suggestion rules set from the POS (Reports > Product suggestions).
+    db.collection("settings").doc("pairings").onSnapshot((doc) => {
+      pairingRules = doc.exists ? (doc.data().rules || []) : [];
+      renderSuggestions();
+    }, (err) => { console.error(err); });
+  }
+
+  // ---------- Quiet, inline "goes well with" suggestions (never a pop-up) ----------
+  function computeSuggestions(){
+    if(cart.length === 0 || pairingRules.length === 0) return [];
+    const cartCats = new Set();
+    cart.forEach(c => {
+      const p = products.find(pr => pr.id === c.productId);
+      if(p) cartCats.add(p.category || "Uncategorized");
+    });
+    const targetCats = new Set();
+    pairingRules.forEach(r => { if(cartCats.has(r.from)) targetCats.add(r.to); });
+    if(targetCats.size === 0) return [];
+    const cartIds = new Set(cart.map(c => c.productId));
+    return products.filter(p => targetCats.has(p.category || "Uncategorized") && p.stock > 0 && !cartIds.has(p.id)).slice(0, 8);
+  }
+
+  function renderSuggestions(){
+    const list = computeSuggestions();
+    [["suggestStrip","suggestRow"], ["cartSuggestStrip","cartSuggestRow"]].forEach(([stripId, rowId]) => {
+      const strip = $(stripId), row = $(rowId);
+      if(!strip || !row) return;
+      if(list.length === 0){ strip.style.display = "none"; return; }
+      strip.style.display = "block";
+      row.innerHTML = "";
+      list.forEach(p => {
+        const card = document.createElement("div");
+        card.className = "suggest-card";
+        card.innerHTML = `
+          <div class="thumb">${(p.thumb || p.image) ? `<img src="${p.thumb || p.image}" alt="" loading="lazy">` : productPlaceholder()}</div>
+          <div class="name">${escapeHtml(p.name)}</div>
+          <div class="price">${peso(effectivePrice(p))}</div>
+          <button type="button" class="add-mini">Add</button>
+        `;
+        card.querySelector(".add-mini").onclick = () => addToCart(p);
+        row.appendChild(card);
+      });
+    });
+  }
+
+  // Some product photos come from Open Food Facts under a Creative Commons
+  // Attribution-ShareAlike licence, which requires the source to be credited.
+  function renderPhotoCredits(){
+    const el = $("photoCredits");
+    if(!el) return;
+    const any = products.some(p => p.imageCredit);
+    if(!any){ el.style.display = "none"; return; }
+    el.style.display = "block";
+    el.innerHTML = `Some product photos from <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a>, used under CC BY-SA.`;
+  }
+
+  function getCategories(){
+    const set = new Set(products.map(p => p.category || "Uncategorized"));
+    return ["All", ...Array.from(set)];
+  }
+
+  function renderChips(){
+    const wrap = $("categoryChips");
+    const cats = getCategories();
+    wrap.innerHTML = "";
+    cats.forEach(cat => {
+      const b = document.createElement("button");
+      b.className = "chip" + (cat === activeCategory ? " active" : "");
+      b.textContent = cat;
+      b.onclick = () => selectCategory(cat);
+      wrap.appendChild(b);
+    });
+  }
+
+  function selectCategory(cat){
+    activeCategory = cat;
+    renderChips();
+    renderProductGrid();
+    closeAllSheets();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function renderCategorySheet(){
+    const wrap = $("categoryList");
+    wrap.innerHTML = "";
+    getCategories().forEach(cat => {
+      const n = cat === "All"
+        ? products.length
+        : products.filter(p => (p.category || "Uncategorized") === cat).length;
+      const row = document.createElement("div");
+      row.className = "cat-row";
+      row.innerHTML = `<span>${escapeHtml(cat)}</span><span class="n">${n}</span>`;
+      row.onclick = () => selectCategory(cat);
+      wrap.appendChild(row);
+    });
+  }
+
+  // ---------- Tingi (buying by the piece) ----------
+  // Pack stock is shared between whole packs and loose pieces, so how much is
+  // available in one unit depends on what the cart already holds in the other.
+  function availablePacks(product){
+    const subLine = cart.find(c => c.productId === product.id && c.unit === "sub");
+    const reserved = subLine ? subLine.qty / (product.subUnitsPerPack || 1) : 0;
+    return Math.max(0, (Number(product.stock) || 0) - reserved);
+  }
+  function availableSubUnits(product){
+    const packLine = cart.find(c => c.productId === product.id && c.unit === "pack");
+    const per = product.subUnitsPerPack || 1;
+    const total = (Number(product.stock) || 0) * per;
+    return Math.max(0, total - (packLine ? packLine.qty * per : 0));
+  }
+  function sellsByPiece(p){
+    return !!(p.subUnitsPerPack && Number(p.subUnitPrice) > 0);
+  }
+
+  function openTingiSheet(p){
+    tingiProductId = p.id;
+    const unitName = p.subUnitName || "piece";
+    $("tingiTitle").textContent = p.name;
+    $("tingiLabel").textContent = "How many " + unitName + "s?";
+    $("tingiInfo").textContent = peso(p.subUnitPrice) + " per " + unitName
+      + " \u00b7 " + p.subUnitsPerPack + " " + unitName + "s in a pack";
+    const avail = Math.round(availableSubUnits(p) * 100) / 100;
+    $("tingiAvail").textContent = avail > 0
+      ? avail + " " + unitName + (avail === 1 ? "" : "s") + " available"
+      : "None available right now";
+    $("tingiQty").value = avail > 0 ? 1 : 0;
+    openSheet("tingiSheet");
+  }
+
+  function addTingiToCart(){
+    const p = products.find(x => x.id === tingiProductId);
+    if(!p) return;
+    const unitName = p.subUnitName || "piece";
+    let qty = parseFloat($("tingiQty").value);
+    if(isNaN(qty) || qty <= 0) return;
+    const avail = Math.round(availableSubUnits(p) * 100) / 100;
+    if(avail <= 0) return;
+    if(qty > avail) qty = avail;
+    const existing = cart.find(c => c.productId === p.id && c.unit === "sub");
+    if(existing){
+      existing.qty += qty;
+    } else {
+      cart.push({
+        productId: p.id,
+        unit: "sub",
+        name: p.name + " (" + unitName + ")",
+        price: Number(p.subUnitPrice) || 0,
+        wasPrice: null,
+        qty: qty,
+        subUnitsPerPack: p.subUnitsPerPack,
+        subUnitName: unitName
+      });
+    }
+    closeSheet("tingiSheet");
+    renderClearance();
+    renderProductGrid();
+    renderCartBar();
+  }
+
+  // ---------- Cards ----------
+  // Customers search in whichever language they think in — the packet name or
+  // the local one. Both find the product.
+  function matchesProductName(p, q){
+    if(!q) return true;
+    return (p.name + " " + (p.localName || "")).toLowerCase().includes(q);
+  }
+
+  function buildProductCard(p){
+    const inCart = cart.find(c => c.productId === p.id);
+    const s = saleInfo(p);
+    const threshold = p.threshold || 5;
+    const low = p.stock > 0 && p.stock <= threshold;
+    const card = document.createElement("div");
+    card.className = "product-card" + (p.stock <= 0 ? " out" : "");
+    card.innerHTML = `
+      <div class="thumb">
+        ${(p.thumb || p.image) ? `<img src="${p.thumb || p.image}" alt="" loading="lazy">` : productPlaceholder()}
+        ${s ? `<span class="off-flag">−${s.off}%</span>` : ""}
+        ${p.stock > 0
+          ? (inCart
+              ? `<span class="qty-badge">${inCart.qty}</span>`
+              : `<button type="button" class="add-btn" aria-label="Add ${escapeHtml(p.name)}">+</button>`)
+          : ""}
+      </div>
+      <div class="body">
+        <div class="name">${escapeHtml(p.name)}</div>
+        ${p.localName ? `<div class="localname">${escapeHtml(p.localName)}</div>` : ""}
+        <div class="price-row">
+          <span class="price${s ? " sale" : ""}">${peso(effectivePrice(p))}</span>
+          ${s ? `<span class="was">${peso(s.was)}</span>` : ""}
+        </div>
+        ${s && s.label ? `<div class="reason">${escapeHtml(s.label)}</div>` : ""}
+        ${p.stock <= 0
+          ? `<div class="soldout">Sold out</div>`
+          : (low ? `<div class="low">Only ${p.stock} left</div>` : "")}
+        ${p.stock > 0 && sellsByPiece(p)
+          ? `<button type="button" class="tingi-btn" data-tingi>Buy per ${escapeHtml(p.subUnitName || "piece")} \u00b7 ${peso(p.subUnitPrice)}</button>`
+          : ""}
+      </div>
+    `;
+    const addBtn = card.querySelector(".add-btn");
+    if(addBtn) addBtn.onclick = (e) => { e.stopPropagation(); addToCart(p); };
+    const tingiBtn = card.querySelector("[data-tingi]");
+    if(tingiBtn) tingiBtn.onclick = (e) => { e.stopPropagation(); openTingiSheet(p); };
+    card.onclick = () => addToCart(p);
+    return card;
+  }
+
+  function renderClearance(){
+    const section = $("clearanceSection");
+    const rail = $("clearanceRail");
+    const list = products.filter(p => p.stock > 0 && saleInfo(p));
+    if(list.length === 0){ section.style.display = "none"; return; }
+    section.style.display = "block";
+    $("clearanceSub").textContent = list.length === 1
+      ? "1 item marked down"
+      : list.length + " items marked down";
+    rail.innerHTML = "";
+    list.forEach(p => rail.appendChild(buildProductCard(p)));
+  }
+
+  function renderProductGrid(){
+    const grid = $("productGrid");
+    const q = ($("searchInput").value || "").trim().toLowerCase();
+    let list = products.filter(p => {
+      const matchesCat = activeCategory === "All" || (p.category || "Uncategorized") === activeCategory;
+      const matchesQ = !q || matchesProductName(p, q);
+      return matchesCat && matchesQ;
+    });
+
+    $("gridHeading").textContent = activeCategory === "All" ? "All products" : activeCategory;
+    $("clearFilterBtn").style.display = (activeCategory !== "All" || q) ? "block" : "none";
+
+    $("loadingProducts").style.display = "none";
+    if(products.length === 0){
+      grid.style.display = "none";
+      $("emptyProducts").style.display = "block";
+      return;
+    }
+    $("emptyProducts").style.display = "none";
+    grid.style.display = "grid";
+    grid.innerHTML = "";
+
+    list.forEach(p => grid.appendChild(buildProductCard(p)));
+
+    if(list.length === 0){
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="big">🔍</div><div class="msg">No matches.</div></div>`;
+    }
+  }
+
+  function addToCart(product){
+    if(product.stock <= 0) return;
+    const avail = availablePacks(product);
+    if(avail <= 0) return;
+    const existing = cart.find(c => c.productId === product.id && c.unit !== "sub");
+    if(existing){
+      if(existing.qty >= avail) return;
+      existing.qty += 1;
+    } else {
+      // The marked-down price is captured here so the cart, the total and the
+      // order all agree with what the customer was shown.
+      const s = saleInfo(product);
+      cart.push({
+        productId: product.id,
+        unit: "pack",
+        name: product.name,
+        price: effectivePrice(product),
+        wasPrice: s ? s.was : null,
+        qty: 1
+      });
+    }
+    renderClearance();
+    renderProductGrid();
+    renderCartBar();
+  }
+
+  function changeQty(productId, delta, unit){
+    unit = unit || "pack";
+    const item = cart.find(c => c.productId === productId && (c.unit || "pack") === unit);
+    if(!item) return;
+    const product = products.find(p => p.id === productId);
+    item.qty += delta;
+    if(item.qty <= 0){
+      cart = cart.filter(c => !(c.productId === productId && (c.unit || "pack") === unit));
+    } else if(product){
+      const avail = unit === "sub" ? availableSubUnits(product) : availablePacks(product);
+      if(item.qty > avail) item.qty = avail;
+    }
+    renderCartSheet();
+    renderCartBar();
+    renderClearance();
+    renderProductGrid();
+  }
+
+  // Goods only — the minimum order is judged on this, so a delivery fee can
+  // never push a too-small basket over the line.
+  function cartTotal(){
+    return cart.reduce((sum, c) => sum + c.price * c.qty, 0);
+  }
+  // What the customer actually pays.
+  function grandTotal(){
+    return cartTotal() + (checkoutMethod === "delivery" ? deliveryFee() : 0);
+  }
+
+  function renderCartBar(){
+    const count = cart.reduce((s,c)=>s+c.qty,0);
+    $("cartCount").textContent = count;
+    $("cartBarTotal").textContent = peso(grandTotal());
+    $("cartBar").classList.toggle("show", count > 0);
+    const badge = $("navCartBadge");
+    badge.textContent = count;
+    badge.style.display = count > 0 ? "flex" : "none";
+    updateMinNotice();
+    renderSuggestions();
+  }
+
+  function renderCartSheet(){
+    const wrap = $("cartItemsWrap");
+    if(cart.length === 0){
+      wrap.innerHTML = `<div class="empty-state"><div class="big">🛒</div><div class="msg">Cart is empty.</div></div>`;
+    } else {
+      wrap.innerHTML = "";
+      cart.forEach(c => {
+        const row = document.createElement("div");
+        row.className = "cart-item";
+        row.innerHTML = `
+          <div class="info">
+            <div class="name">${escapeHtml(c.name)}</div>
+            <div class="unit">${peso(c.price)} ${c.unit === "sub" ? "per " + escapeHtml(c.subUnitName || "piece") : "each"}${c.wasPrice ? `<span class="was">${peso(c.wasPrice)}</span>` : ""}</div>
+          </div>
+          <div class="stepper">
+            <button data-dec>−</button>
+            <span class="n">${c.qty}</span>
+            <button data-inc>+</button>
+          </div>
+          <div class="line-total">${peso(c.price * c.qty)}</div>
+        `;
+        row.querySelector("[data-dec]").onclick = () => changeQty(c.productId, -1, c.unit || "pack");
+        row.querySelector("[data-inc]").onclick = () => changeQty(c.productId, 1, c.unit || "pack");
+        wrap.appendChild(row);
+      });
+    }
+    const fee = checkoutMethod === "delivery" ? deliveryFee() : 0;
+    const feeRow = $("feeRow");
+    if(fee > 0 && cart.length > 0){
+      feeRow.style.display = "flex";
+      const z = currentZone();
+      $("feeLabel").textContent = "Delivery" + (z ? " to " + z.name : "");
+      $("feeAmount").textContent = peso(fee);
+    } else {
+      feeRow.style.display = "none";
+    }
+    $("cartTotal").textContent = peso(grandTotal());
+    $("toCheckoutBtn").disabled = cart.length === 0;
+  }
+
+  // ---------- Where we're taking it ----------
+  // The town is chosen before shopping, not at checkout, because it decides the
+  // delivery fee, the smallest order accepted, and which days we go there.
+  // Finding that out after filling a basket is the thing that makes people
+  // abandon an order.
+  function zoneByName(name){
+    return zones.find(z => z.name === name) || null;
+  }
+  function restoreZoneChoice(){
+    let saved = null;
+    try{ saved = localStorage.getItem("storeZone"); }catch(e){}
+    if(saved === "__pickup"){ selectedZone = "__pickup"; return; }
+    if(saved && zoneByName(saved)){ selectedZone = saved; return; }
+    selectedZone = null;
+  }
+  function rememberZoneChoice(){
+    try{ localStorage.setItem("storeZone", selectedZone || ""); }catch(e){}
+  }
+  function isPickup(){ return selectedZone === "__pickup"; }
+  function currentZone(){ return isPickup() ? null : zoneByName(selectedZone); }
+
+  function deliveryFee(){
+    const z = currentZone();
+    return z ? (Number(z.fee) || 0) : 0;
+  }
+
+  // Plain-language next delivery day for a town with set days.
+  function nextDayText(z){
+    if(!z || !Array.isArray(z.days) || z.days.length === 0) return "any day";
+    const today = new Date().getDay();
+    for(let i = 0; i < 7; i++){
+      const d = DAY_NAMES[(today + i) % 7];
+      if(z.days.indexOf(d) >= 0){
+        return i === 0 ? "today" : (i === 1 ? "tomorrow" : d);
+      }
+    }
+    return z.days.join(", ");
+  }
+
+  function zoneRulesText(z){
+    if(!z) return "";
+    const bits = [];
+    bits.push(Number(z.fee) > 0 ? peso(z.fee) + " delivery" : "Free delivery");
+    if(Number(z.minOrder) > 0) bits.push("min " + peso(z.minOrder));
+    if(Number(z.distanceKm) > 0) bits.push(z.distanceKm + " km away");
+    bits.push("next: " + nextDayText(z));
+    return bits.join(" · ");
+  }
+
+  function renderLocBar(){
+    const where = $("locWhere"), rules = $("locRules");
+    if(!where) return;
+    if(zones.length === 0){
+      // No towns configured — keep the bar out of the way entirely.
+      $("locBar").style.display = "none";
+      return;
+    }
+    $("locBar").style.display = "flex";
+    if(isPickup()){
+      where.textContent = "Pickup at the store";
+      rules.textContent = storeRules.minOrderPickup > 0 ? " \u00b7 min " + peso(storeRules.minOrderPickup) : "";
+    } else if(currentZone()){
+      const z = currentZone();
+      where.textContent = "Deliver to " + z.name;
+      rules.textContent = " \u00b7 " + zoneRulesText(z);
+    } else {
+      where.textContent = "Choose your town";
+      rules.textContent = " \u00b7 see delivery days and fees";
+    }
+  }
+
+  function renderZonePicker(){
+    const wrap = $("zonePickList");
+    wrap.innerHTML = "";
+    const pickupRow = document.createElement("div");
+    pickupRow.className = "zone-row" + (isPickup() ? " sel" : "");
+    pickupRow.innerHTML = `
+      <div>
+        <div class="zn">Pickup at the store</div>
+        <div class="zr">No delivery fee${storeRules.minOrderPickup > 0 ? " \u00b7 min " + peso(storeRules.minOrderPickup) : ""}</div>
+      </div>
+      ${isPickup() ? `<div class="tick">✓</div>` : ""}
+    `;
+    pickupRow.onclick = () => chooseZone("__pickup");
+    wrap.appendChild(pickupRow);
+
+    zones.forEach(z => {
+      const sel = selectedZone === z.name;
+      const row = document.createElement("div");
+      row.className = "zone-row" + (sel ? " sel" : "");
+      row.innerHTML = `
+        <div>
+          <div class="zn">${escapeHtml(z.name)}</div>
+          <div class="zr">${escapeHtml(zoneRulesText(z))}</div>
+        </div>
+        ${sel ? `<div class="tick">✓</div>` : ""}
+      `;
+      row.onclick = () => chooseZone(z.name);
+      wrap.appendChild(row);
+    });
+  }
+
+  function chooseZone(name){
+    selectedZone = name;
+    rememberZoneChoice();
+    // Keep the checkout's own pickup/delivery switch in step with this choice.
+    selectMethod(isPickup() ? "pickup" : "delivery");
+    renderLocBar();
+    renderCartBar();
+    renderCartSheet();
+    closeSheet("zoneSheet");
+  }
+
+  // ---------- Minimum order ----------
+  // Per-piece ordering makes it easy to build a basket worth \u20b115, which costs
+  // more to deliver than it earns. The store sets the floor; this enforces it.
+  function minimumForMethod(){
+    if(checkoutMethod === "pickup") return storeRules.minOrderPickup || 0;
+    const z = currentZone();
+    // A town's own minimum wins; the plain delivery minimum is the fallback for
+    // stores that haven't set any towns up.
+    if(z && Number(z.minOrder) > 0) return Number(z.minOrder);
+    return storeRules.minOrderDelivery || 0;
+  }
+  function shortfall(){
+    const min = minimumForMethod();
+    if(min <= 0) return 0;
+    return Math.max(0, min - cartTotal());
+  }
+  function updateMinNotice(){
+    const el = $("minNotice");
+    if(!el) return;
+    const min = minimumForMethod();
+    const short = shortfall();
+    if(min <= 0 || cart.length === 0){ el.style.display = "none"; }
+    else if(short > 0){
+      el.style.display = "block";
+      const z = currentZone();
+      // A bare number reads as arbitrary; the distance is the reason, and
+      // saying so makes the floor feel like a fact rather than a rule.
+      el.textContent = checkoutMethod === "delivery" && z && Number(z.distanceKm) > 0
+        ? z.name + " is " + z.distanceKm + " km away, so the smallest order we can bring is "
+          + peso(min) + ". Add " + peso(short) + " more to continue — or choose pickup instead."
+        : "Smallest " + (checkoutMethod === "delivery" ? "delivery" : "pickup")
+          + " order is " + peso(min) + ". Add " + peso(short) + " more to continue.";
+    } else {
+      el.style.display = "none";
+    }
+    const btn = $("placeOrderBtn");
+    if(btn && !placingOrder) btn.disabled = short > 0;
+  }
+
+  function makeOrderCode(){
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let s = "";
+    for(let i=0;i<6;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    return s;
+  }
+
+  async function placeOrder(){
+    if(placingOrder) return;
+    const name = $("cf-name").value.trim();
+    const phone = $("cf-phone").value.trim();
+    const address = $("cf-address").value.trim();
+    const gcashRef = $("cf-gcashref").value.trim();
+
+    if(cart.length === 0){ showCheckoutError("Your cart is empty."); return; }
+    if(!name){ showCheckoutError("Enter your name."); return; }
+    if(!phone){ showCheckoutError("Enter your phone number."); return; }
+    if(checkoutMethod === "delivery" && zones.length > 0 && !currentZone()){
+      showCheckoutError("Choose which town we're delivering to first.");
+      return;
+    }
+    if(checkoutMethod === "delivery" && !address){ showCheckoutError("Enter your delivery address."); return; }
+    const short = shortfall();
+    if(short > 0){
+      const mz = currentZone();
+      showCheckoutError(
+        checkoutMethod === "delivery" && mz && Number(mz.distanceKm) > 0
+          ? mz.name + " is " + mz.distanceKm + " km away, so the smallest order we can deliver is "
+            + peso(minimumForMethod()) + ". Add " + peso(short) + " more, or switch to pickup."
+          : "Smallest " + (checkoutMethod === "delivery" ? "delivery" : "pickup")
+            + " order is " + peso(minimumForMethod()) + ". Add " + peso(short) + " more to continue."
+      );
+      return;
+    }
+    showCheckoutError("");
+
+    placingOrder = true;
+    $("placeOrderBtn").disabled = true;
+    $("placeOrderBtn").textContent = "Placing order…";
+
+    const code = makeOrderCode();
+    const orderRef = db.collection("orders").doc();
+    // unit/perPack travel with the line so the POS knows a tingi line consumes a
+    // fraction of a pack, not a whole one, when it accepts the order.
+    const orderItems = cart.map(c => ({
+      productId: c.productId,
+      name: c.name,
+      price: c.price,
+      qty: c.qty,
+      unit: c.unit || "pack",
+      perPack: c.unit === "sub" ? (c.subUnitsPerPack || 1) : 1,
+      // Carried through so the order reads in the shop's own words — "3 sticks",
+      // not "3 pieces" — on the POS Orders tab and in the Messenger summary.
+      subUnitName: c.unit === "sub" ? (c.subUnitName || "piece") : null
+    }));
+    const fee = checkoutMethod === "delivery" ? deliveryFee() : 0;
+    const total = cartTotal() + fee;
+    const zoneName = checkoutMethod === "delivery" ? (currentZone() ? currentZone().name : "") : "";
+    const orderData = {
+      code,
+      customerName: name,
+      phone,
+      method: checkoutMethod,
+      address: checkoutMethod === "delivery" ? address : "",
+      deliveryZone: zoneName,
+      deliveryFee: fee,
+      paymentMethod: checkoutPayment,
+      gcashRef: checkoutPayment === "gcash" ? gcashRef : "",
+      items: orderItems,
+      total,
+      status: "pending",
+      // Tells the POS that this order has NOT had its stock deducted yet —
+      // stock now moves only when the store accepts the order. Orders placed
+      // by the older version of this page carry no such flag, and the POS
+      // treats their stock as already reserved, so both generations behave
+      // correctly. See the note below on why reservation was removed.
+      stockReserved: false,
+      createdAt: new Date().toISOString()
+    };
+
+    try{
+      // This page is public and unauthenticated, so it deliberately does NOT
+      // write to product records. It used to decrement stock here, which meant
+      // the security rules had to let ANY anonymous visitor lower stock — and
+      // anyone who read this page's Firebase settings could have scripted that
+      // to empty the whole shop's inventory. Stock is now deducted by the POS
+      // when the store accepts the order, so the storefront needs no write
+      // access to products at all. Availability is still checked below so a
+      // customer isn't told an out-of-stock item is on its way.
+      for(const c of cart){
+        const live = products.find(p => p.id === c.productId);
+        // A tingi line is counted in pieces, so compare it against the pack
+        // stock converted into pieces rather than against packs.
+        const needPacks = c.unit === "sub"
+          ? c.qty / (c.subUnitsPerPack || 1)
+          : c.qty;
+        if(!live || (Number(live.stock) || 0) < needPacks){
+          const err = new Error("OUT_OF_STOCK");
+          err.itemName = c.name;
+          throw err;
+        }
+      }
+      await orderRef.set(orderData);
+
+      cart = [];
+      renderCartBar();
+      renderClearance();
+      renderProductGrid();
+      closeSheet("checkoutSheet");
+      showConfirmation(orderRef.id, code, orderData);
+    }catch(err){
+      console.error(err);
+      if(err && err.message === "OUT_OF_STOCK"){
+        showCheckoutError(`"${err.itemName}" just sold out — please remove or reduce it in your cart.`);
+      } else {
+        showCheckoutError("Couldn't place your order — check your connection and try again.");
+      }
+    }
+
+    placingOrder = false;
+    $("placeOrderBtn").disabled = false;
+    $("placeOrderBtn").textContent = "Place order";
+  }
+
+  function showCheckoutError(msg){
+    const el = $("checkoutError");
+    if(!msg){ el.style.display = "none"; return; }
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+
+  // A plain-text version of the order, for pasting into a chat.
+  //
+  // Messenger has not supported pre-filled message text for years, whatever the
+  // old guides say — m.me can open a conversation and nothing more. So rather
+  // than pretend, the order is copied to the clipboard and the chat is opened;
+  // the customer pastes. The order is already saved in the shop's system by
+  // this point, so even if they never send the message, nothing is lost.
+  function orderAsText(order, code){
+    const lines = [];
+    lines.push("Order " + code);
+    lines.push("");
+    (order.items || []).forEach(it => {
+      const unit = it.unit === "sub" ? (it.subUnitName || "pc") : "pack";
+      lines.push("• " + it.qty + " " + unit + (it.qty === 1 ? "" : "s") + " — " + it.name);
+    });
+    lines.push("");
+    lines.push("Total: " + peso(order.total));
+    lines.push(order.method === "delivery" ? "For delivery" : "For pickup");
+    if(order.address) lines.push("Address: " + order.address);
+    lines.push("Payment: " + (order.paymentMethod === "gcash" ? "GCash" : "Cash"));
+    lines.push("Name: " + (order.customerName || ""));
+    lines.push("Phone: " + (order.phone || ""));
+    return lines.join("\n");
+  }
+
+  function copyText(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise((resolve, reject) => {
+      try{
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.top = "-1000px";
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        resolve();
+      }catch(err){ reject(err); }
+    });
+  }
+
+  function showConfirmation(orderId, code, order){
+    $("confirmCode").textContent = code;
+    const cfg = window.STORE_CONFIG || {};
+    let details = checkoutMethod === "delivery"
+      ? (cfg.deliveryNote || "We'll contact you to confirm delivery.")
+      : (cfg.pickupNote || "We'll text you when your order is ready for pickup.");
+    if(checkoutPayment === "gcash"){
+      details += ` Send payment to ${cfg.gcashNumber || "our GCash number"} if you haven't already.`;
+    }
+    $("confirmDetails").textContent = details;
+    $("viewTrackBtn").onclick = () => { window.location.href = "order.html?id=" + encodeURIComponent(orderId); };
+
+    // The Messenger button only exists for shops that have set a page.
+    const page = (cfg.messengerPage || "").trim();
+    const btn = $("messengerBtn"), hint = $("messengerHint");
+    if(page && order){
+      btn.style.display = "";
+      hint.style.display = "";
+      btn.textContent = "Send this order on Messenger";
+      btn.classList.remove("copied");
+      btn.onclick = () => {
+        const text = orderAsText(order, code);
+        copyText(text)
+          .then(() => {
+            btn.textContent = "Copied — opening Messenger…";
+            btn.classList.add("copied");
+          })
+          .catch(() => {
+            btn.textContent = "Opening Messenger…";
+          })
+          .then(() => {
+            // A new tab, so the order page and its code stay open behind it.
+            window.open("https://m.me/" + encodeURIComponent(page), "_blank", "noopener");
+          });
+      };
+    } else {
+      btn.style.display = "none";
+      hint.style.display = "none";
+    }
+
+    openSheet("confirmSheet");
+  }
+
+  function selectMethod(method){
+    checkoutMethod = method;
+    document.querySelectorAll("#methodRow .radio-opt").forEach(el => el.classList.toggle("active", el.dataset.method === method));
+    $("deliveryFields").style.display = method === "delivery" ? "block" : "none";
+    // The pickup note sits outside deliveryFields, so it has to be hidden on
+    // its own — otherwise a customer choosing delivery reads both notes and is
+    // told, in the same breath, to come and collect the order.
+    $("pickupNoteBox").style.display = method === "pickup" ? "" : "none";
+    const z = currentZone();
+    const note = $("deliveryNoteBox");
+    if(method === "delivery" && z && note){
+      note.textContent = "Delivering to " + z.name + " \u2014 "
+        + (Number(z.fee) > 0 ? peso(z.fee) + " delivery fee" : "no delivery fee")
+        + ", next trip " + nextDayText(z) + ".";
+    }
+    renderCartSheet();
+    updateMinNotice();
+  }
+
+  function selectPayment(payment){
+    checkoutPayment = payment;
+    document.querySelectorAll("#paymentRow .radio-opt").forEach(el => el.classList.toggle("active", el.dataset.payment === payment));
+    $("gcashFields").style.display = payment === "gcash" ? "block" : "none";
+  }
+
+  function openSheet(id){
+    $("overlay").classList.add("show");
+    $(id).classList.add("show");
+  }
+  function closeAllSheets(){
+    $("overlay").classList.remove("show");
+    document.querySelectorAll(".sheet").forEach(s => s.classList.remove("show"));
+  }
+  function closeSheet(id){
+    $(id).classList.remove("show");
+    const anyOpen = document.querySelector(".sheet.show");
+    if(!anyOpen) $("overlay").classList.remove("show");
+  }
+
+  function setActiveNav(id){
+    document.querySelectorAll(".nav-item").forEach(el => el.classList.toggle("active", el.id === id));
+  }
+
+  function openCart(){
+    setActiveNav("navCart");
+    renderCartSheet();
+    openSheet("cartSheet");
+  }
+
+  function wireEvents(){
+    $("searchInput").oninput = renderProductGrid;
+    $("clearFilterBtn").onclick = () => {
+      $("searchInput").value = "";
+      activeCategory = "All";
+      renderChips();
+      renderProductGrid();
+    };
+    $("cartBar").onclick = openCart;
+    $("clearCartBtn").onclick = () => { cart = []; renderCartSheet(); renderCartBar(); renderClearance(); renderProductGrid(); };
+    $("toCheckoutBtn").onclick = () => { closeSheet("cartSheet"); showCheckoutError(""); updateMinNotice(); openSheet("checkoutSheet"); };
+    $("tingiAddBtn").onclick = addTingiToCart;
+    $("locBar").onclick = () => { renderZonePicker(); openSheet("zoneSheet"); };
+    $("placeOrderBtn").onclick = placeOrder;
+    $("doneOrderBtn").onclick = () => closeSheet("confirmSheet");
+    $("overlay").onclick = () => { closeAllSheets(); setActiveNav("navHome"); };
+    document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => { closeAllSheets(); setActiveNav("navHome"); });
+    document.querySelectorAll("#methodRow .radio-opt").forEach(el => el.onclick = () => selectMethod(el.dataset.method));
+    document.querySelectorAll("#paymentRow .radio-opt").forEach(el => el.onclick = () => selectPayment(el.dataset.payment));
+
+    $("navHome").onclick = () => {
+      setActiveNav("navHome");
+      closeAllSheets();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    $("navCategories").onclick = () => {
+      setActiveNav("navCategories");
+      renderCategorySheet();
+      openSheet("categorySheet");
+    };
+    $("navOrder").onclick = () => { window.location.href = "order.html"; };
+    $("navCart").onclick = openCart;
+  }
+
+  // Customers won't hunt through a browser menu to install a shop's page, so
+  // the offer is made once, inline, and can be dismissed for good.
+  function setupInstallPrompt(){
+    const bar = $("installBar"), text = $("installText");
+    const standalone = window.matchMedia("(display-mode: standalone)").matches
+      || window.navigator.standalone === true;
+    let dismissed = false;
+    try{ dismissed = localStorage.getItem("installDismissed") === "1"; }catch(e){}
+    if(standalone || dismissed) return;
+
+    let deferred = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferred = e;
+      bar.classList.add("show");
+    });
+
+    if(/iphone|ipad|ipod/i.test(navigator.userAgent)){
+      text.innerHTML = "<b>Add to your home screen</b> — tap Share, then Add to Home Screen";
+      bar.classList.add("show");
+    }
+
+    bar.onclick = async (e) => {
+      if(e.target && e.target.id === "installDismiss") return;
+      if(!deferred) return;
+      deferred.prompt();
+      try{ await deferred.userChoice; }catch(err){}
+      deferred = null;
+      bar.classList.remove("show");
+    };
+    $("installDismiss").onclick = (e) => {
+      e.stopPropagation();
+      bar.classList.remove("show");
+      try{ localStorage.setItem("installDismissed", "1"); }catch(err){}
+    };
+    window.addEventListener("appinstalled", () => bar.classList.remove("show"));
+  }
+
+  function init(){
+    setupInstallPrompt();
+    applyStoreConfig();
+    wireEvents();
+    initFirebase();
+  }
+
+  init();
+
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("service-worker.js").catch(() => {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
