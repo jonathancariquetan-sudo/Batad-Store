@@ -7,8 +7,8 @@
 // they can be changed from your phone without touching a file.
 // ---------------------------------------------------------------------------
 window.STORE_CONFIG = {
-  name: "Your Store Name",              // only used before the POS settings load
-  tagline: "Batad, Iloilo",
+  name: "Edgar Store",              // only used before the POS settings load
+  tagline: "Goods with Fair prices",
 
   contactNumber: "09273311375",         // shown to customers for questions
   gcashNumber: "09273311375",           // where customers send GCash payment
