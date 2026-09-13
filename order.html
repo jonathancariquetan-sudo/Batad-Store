@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Order status</title>
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#F4F6F1;--surface:#FFFFFF;--border:#DCE1D6;--text:#1F2A22;--text-muted:#62705F;
+    --primary:#1F6E43;--primary-dark:#164F30;--primary-tint:#E4F0E8;
+    --accent:#C98A1F;--accent-tint:#FBF0DC;--danger:#B3403A;--danger-tint:#F8E7E5;
+    --info:#1E5A96;--info-tint:#E4EDF7;--neutral-tint:#EDEEEA;--radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--bg);color:var(--text);min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding:20px 16px 40px;
+  }
+  h1,.heading{font-family:"Manrope",-apple-system,sans-serif;font-weight:800;margin:0;}
+  .wrap{max-width:420px;margin:0 auto;}
+  .back-link{display:inline-block;font-size:13px;color:var(--primary-dark);font-weight:700;text-decoration:none;margin-bottom:14px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+  /* Messenger's own blue — recognised faster than anything we could style, and
+     this link leaves the site. */
+  .msgr-btn{
+    display:block;width:100%;box-sizing:border-box;text-align:center;
+    background:#0866FF;color:#fff;text-decoration:none;
+    padding:14px;border-radius:var(--radius);font-weight:800;font-size:15px;
+    margin-bottom:14px;
+  }
+  .msgr-note{font-size:12px;color:var(--text-muted);line-height:1.5;margin:-6px 0 16px;text-align:center;}
+  .code-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;}
+  .code-row .code{font-size:22px;font-weight:800;letter-spacing:.04em;}
+  .status-pill{font-size:12px;font-weight:800;padding:4px 11px;border-radius:999px;display:inline-block;}
+  .status-pill.pending{background:var(--accent-tint);color:#8A5D14;}
+  .status-pill.accepted{background:var(--primary-tint);color:var(--primary-dark);}
+  .status-pill.ready{background:var(--info-tint);color:var(--info);}
+  .status-pill.completed{background:var(--neutral-tint);color:var(--text-muted);}
+  .status-pill.cancelled{background:var(--danger-tint);color:var(--danger);}
+
+  .timeline{display:flex;justify-content:space-between;margin:18px 0 6px;}
+  .step{flex:1;text-align:center;position:relative;font-size:11px;color:var(--text-muted);font-weight:700;}
+  .step .dot{width:14px;height:14px;border-radius:50%;background:var(--border);margin:0 auto 6px;}
+  .step.done .dot{background:var(--primary);}
+  .step.current .dot{background:var(--accent);box-shadow:0 0 0 4px var(--accent-tint);}
+  .step::before{
+    content:"";position:absolute;top:6px;left:-50%;width:100%;height:2px;background:var(--border);z-index:-1;
+  }
+  .step:first-child::before{display:none;}
+  .step.done::before{background:var(--primary);}
+
+  .meta-line{font-size:13px;color:var(--text-muted);margin-bottom:4px;}
+  .section-label{font-size:12px;font-weight:800;color:var(--text-muted);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.03em;}
+  .item-line{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;color:var(--text-muted);}
+  .item-line span:last-child{color:var(--text);font-weight:700;}
+  .total-line{display:flex;justify-content:space-between;font-size:16px;font-weight:800;border-top:1px solid var(--border);margin-top:8px;padding-top:10px;}
+  .loading-wrap{padding:60px 20px;text-align:center;color:var(--text-muted);font-size:14px;}
+  .empty-state{text-align:center;padding:40px 20px;color:var(--text-muted);}
+  .empty-state .big{font-size:32px;margin-bottom:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="index.html">← Back to store</a>
+  <h1 style="font-size:19px;color:var(--primary-dark);margin-bottom:14px;">Order status</h1>
+  <div id="loading" class="loading-wrap">Loading your order…</div>
+  <div id="notFound" class="empty-state" style="display:none;">
+    <div class="big">🔎</div>
+    <div>Order not found. Check the link from your confirmation, or use the direct link you were given after checkout.</div>
+  </div>
+  <div id="orderContent" style="display:none;"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="store-config.js"></script>
+<script>
+(function(){
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const peso = (n) => "₱" + Number(n || 0).toLocaleString("en-PH", {minimumFractionDigits:2, maximumFractionDigits:2});
+  function escapeHtml(s){ const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+
+  const params = new URLSearchParams(window.location.search);
+  const orderId = params.get("id");
+
+  if(!orderId || !window.FIREBASE_CONFIG || window.FIREBASE_CONFIG.apiKey === "PASTE_YOUR_API_KEY"){
+    $("loading").style.display = "none";
+    $("notFound").style.display = "block";
+    return;
+  }
+
+  firebase.initializeApp(window.FIREBASE_CONFIG);
+  const db = firebase.firestore();
+
+  const STEPS = ["pending", "accepted", "ready", "completed"];
+  const STEP_LABELS = { pending: "Placed", accepted: "Accepted", ready: "Ready", completed: "Done" };
+
+  db.collection("orders").doc(orderId).onSnapshot((doc) => {
+    $("loading").style.display = "none";
+    if(!doc.exists){
+      $("notFound").style.display = "block";
+      $("orderContent").style.display = "none";
+      return;
+    }
+    $("notFound").style.display = "none";
+    $("orderContent").style.display = "block";
+    render(doc.data());
+  }, () => {
+    $("loading").style.display = "none";
+    $("notFound").style.display = "block";
+  });
+
+  function render(o){
+    const methodLine = o.method === "delivery" ? `🚚 Delivery — ${escapeHtml(o.address || "")}` : `🏬 Pickup at store`;
+    const payLine = o.paymentMethod === "gcash" ? `📱 GCash${o.gcashRef ? " · ref " + escapeHtml(o.gcashRef) : ""}` : "💵 Cash";
+    const itemsHtml = (o.items || []).map(it =>
+      `<div class="item-line"><span>${escapeHtml(it.name)} x${it.qty}</span><span>${peso(it.price*it.qty)}</span></div>`
+    ).join("");
+
+    let timelineHtml = "";
+    if(o.status === "cancelled"){
+      timelineHtml = `<div class="status-pill cancelled" style="display:block;text-align:center;padding:10px;font-size:13px;">This order was cancelled. Stock has been restored — please contact the store if you have questions.</div>`;
+    } else {
+      const curIdx = STEPS.indexOf(o.status);
+      timelineHtml = `<div class="timeline">` + STEPS.map((s,i) => {
+        const cls = i < curIdx ? "done" : (i === curIdx ? "current" : "");
+        return `<div class="step ${cls}"><div class="dot"></div>${STEP_LABELS[s]}</div>`;
+      }).join("") + `</div>`;
+    }
+
+    // Somewhere to ask "where is my order?" without hunting for a number.
+    // Only appears once a Facebook Page has been set in store-config.js.
+    const cfg = window.STORE_CONFIG || {};
+    const page = (cfg.messengerPage || "").trim();
+    const helpHtml = page
+      ? `<a class="msgr-btn" href="https://m.me/${encodeURIComponent(page)}" target="_blank" rel="noopener">Message us about this order</a>
+         <div class="msgr-note">Quote your order code #${escapeHtml(o.code)} so we can find it quickly.</div>`
+      : (cfg.contactNumber
+          ? `<div class="msgr-note">Questions? Text or call ${escapeHtml(cfg.contactNumber)} and quote #${escapeHtml(o.code)}.</div>`
+          : "");
+
+    $("orderContent").innerHTML = `
+      <div class="card">
+        <div class="code-row"><span class="code">#${escapeHtml(o.code)}</span><span class="status-pill ${escapeHtml(o.status)}">${escapeHtml(o.status)}</span></div>
+        ${timelineHtml}
+        <div class="section-label">Details</div>
+        <div class="meta-line">${escapeHtml(o.customerName)} · ${escapeHtml(o.phone)}</div>
+        <div class="meta-line">${methodLine}</div>
+        <div class="meta-line">${payLine}</div>
+        <div class="section-label">Items</div>
+        ${itemsHtml}
+        <div class="total-line"><span>Total</span><span>${peso(o.total)}</span></div>
+      </div>
+      ${helpHtml}
+    `;
+  }
+})();
+</script>
+</body>
+</html>
