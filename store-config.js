@@ -10,9 +10,9 @@ window.STORE_CONFIG = {
   name: "Your Store Name",              // only used before the POS settings load
   tagline: "Batad, Iloilo",
 
-  contactNumber: "09XXXXXXXXX",         // shown to customers for questions
-  gcashNumber: "09XXXXXXXXX",           // where customers send GCash payment
-  gcashName: "Juan Dela Cruz",          // the name on that GCash account
+  contactNumber: "09273311375",         // shown to customers for questions
+  gcashNumber: "09273311375",           // where customers send GCash payment
+  gcashName: "ThelmoSolisJr",          // the name on that GCash account
 
   // Your Facebook Page's username — the part after facebook.com/ in its
   // address. If your page is facebook.com/TindahanNiGloria then put
